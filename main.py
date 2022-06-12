@@ -14,6 +14,7 @@ from datetime import datetime, timedelta
 from constants.Bar_Durations import BarDurations
 from constants.Security_Types import SecurityTypes
 from constants.Primary_Exchanges import PrimaryExchanges
+from constants.Symbols import Symbols
 
 
 
@@ -27,7 +28,6 @@ class IBApi(EWrapper, EClient):
 
     #* Fetch and backfill historical data when bot begins
     def historicalData(self, reqId, bar):
-        # print(f'Historical Data : {reqId} Date: {bar.date} Open: {bar.open} High: {bar.high} Low: {bar.low} Close: {bar.close} Volume: {bar.volume} Count: {bar.barCount} Weight Average Price (WAP): {bar.average}')
         try:
             bot.on_bar_update(reqId, bar, False)
         except Exception as e:
@@ -80,17 +80,69 @@ class Bar:
         self.date = ''
         
 
+class Config:
+    symbol = 'EUR'
+    base_currency = 'USD'
+    bar_duration = None
+    sec_type = None
+    exchange = 'SMART'
+    primary_exchange = None
 
+    def __init__(self):
+        self.bar_duration = BarDurations.HOUR1.value
+        self.sec_type = SecurityTypes.FOREX.value
+        self.primary_exchange = PrimaryExchanges.get(self.sec_type)
+
+    def print_config(self):
+        print('\n***********************************************')
+        print('\n     CONFIGURATION:\n')
+        print(f'     Symbol : {self.symbol}')
+        print(f'     Base Currency : {self.base_currency}')
+        print(f'     Security : {self.sec_type}')
+        print(f'     Exchange : {self.exchange}')
+        print(f'     Primary Exchange : {self.primary_exchange}')
+        print(f'     Bar Duration : {self.bar_duration}')
+        print('\n***********************************************\n')
+
+    def setup(self, prompt):
+        while True:
+            using_defaults = input(prompt).upper()
+            if using_defaults != 'Y' and using_defaults != 'N':
+                print("\nINPUT WARNING - Please make a valid selection.")
+                continue
+            else:
+                if using_defaults == 'Y':
+                    self.print_config()
+                else:
+                    self.run_setup()
+                break
+        # print(using_defaults)
+    
+    def run_setup(self):
+        self.set_sec_types()
+        self.set_primary_exchange()
+        self.set_symbol()
+        self.set_bar_durations()
+
+    def set_sec_types(self):
+        self.sec_type = SecurityTypes.set_security_type('\nChoose the security type : ' )
+
+    def set_primary_exchange(self):
+        self.primary_exchange = PrimaryExchanges.get(self.sec_type)
+
+    def set_symbol(self):
+        print(self.sec_type)
+        self.symbol = Symbols.set_symbol('\nEnter the symbol you want to trade : ')
+
+    def set_bar_durations(self):
+        self.bar_duration = BarDurations.set_bar_durations('\nChoose the bar duration you want to use : ' )
 
 
 
 #* Bot Logic
 class Bot:
     ib = None
-    bar_duration = BarDurations.HOUR1.value
-    sec_type = SecurityTypes.FOREX.value
-    exchange = 'SMART'
-    primary_exchange = None
+    config = Config()
 
     def __init__(self):
         #* Connect to IB on init
@@ -101,19 +153,18 @@ class Bot:
         time.sleep(1)
         
         #* Get symbol info
-        symbol = input('Enter the symbol you want to trade : ')
-        # self.bar_duration = BarDurations.set_bar_durations('Choose the bar duration you want to use : ' )
-        # self.sec_type = SecurityTypes.set_security_type('Choose the security type : ' )
-        self.primary_exchange = PrimaryExchanges.get(self.sec_type)
+        # symbol = input('Enter the symbol you want to trade : ')
+
+        self.config.setup('Do you want to use defaults (y/n) : ')
 
 
         #* Create our IB Contract Object
         contract = Contract()
-        contract.symbol = symbol.upper()
+        contract.symbol = self.config.symbol
 
-        contract.secType = self.sec_type 
-        contract.exchange = self.exchange
-        contract.primaryExchange = self.primary_exchange
+        contract.secType = self.config.sec_type 
+        contract.exchange = self.config.exchange
+        contract.primaryExchange = self.config.primary_exchange
         
         contract.currency = 'USD'
 
@@ -124,7 +175,7 @@ class Bot:
 
         # self.ib.reqMarketDataType(4)
         # self.ib.reqMktData(1, contract, '', False, False, [])
-        self.ib.reqHistoricalData(1, contract, '', '1 D', self.bar_duration, 'MIDPOINT', 0, 1, False, [])
+        self.ib.reqHistoricalData(1, contract, '', '1 D', self.config.bar_duration, 'MIDPOINT', 0, 1, False, [])
 
     #* Listen to socket in separate thread
     def run_loop(self):
