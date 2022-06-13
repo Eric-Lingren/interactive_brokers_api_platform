@@ -5,14 +5,14 @@ class SecurityTypes(Enum):
     FOREX = 'CASH'
     CRYPTO = 'CRYPTO'
     STOCK = 'STK'
-    INDEX = 'IND'
-    CFD = 'CFD'
-    FUTURE = 'FUT'
-    OPTION = 'OPT'
-    FUTURE_OPTION = 'FOP'
-    BOND = 'BOND'
-    MUTUAL_FUND = 'FUND'
-    COMMODITY = 'CMDTY'
+    # INDEX = 'IND'
+    # CFD = 'CFD'
+    # FUTURE = 'FUT'
+    # OPTION = 'OPT'
+    # FUTURE_OPTION = 'FOP'
+    # BOND = 'BOND'
+    # MUTUAL_FUND = 'FUND'
+    # COMMODITY = 'CMDTY'
 
     def print_security_types_choices():
         for i, security_type in enumerate(SecurityTypes):
