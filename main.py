@@ -25,10 +25,9 @@ orderId = 1
 
 #* Class for IB API Connection
 class IBApi(EWrapper, EClient):
-    # config = Config()
-    
     def __init__(self):
         EClient.__init__(self, self)
+
 
     #* Fetch and backfill historical data when bot begins
     def historicalData(self, reqId, bar):
@@ -37,6 +36,12 @@ class IBApi(EWrapper, EClient):
         except Exception as e:
             print(e)
 
+
+    #* On Historical Data End:
+    def historicalDataEnd(self, reqId, start, end):
+        print('historical data end ', reqId )
+
+
     #* On Realtime Bar after historical data has been backfilled:
     def historicalDataUpdate(self, reqId, bar):
         try:
@@ -44,23 +49,13 @@ class IBApi(EWrapper, EClient):
         except Exception as e:
             print(e)
 
-    #* On Historical Data End:
-    def historicalDataEnd(self, reqId, start, end):
-        print('historical data end ', reqId )
 
     #* Fetch next valid order id we can use:
     def nextValidId(self, nextOrderId):
         global orderId
         orderId = nextOrderId
-
-    # #* Listen for realtime bars:
-    # def realtimeBar(self, reqId, time, open_, high, low, close, volume, wap, count):
-    #     super().bot.on_bar_update(reqId, time, open_, high, low, close, volume, wap, count)
-    #     try:
-    #         bot.on_bar_update(reqId, time, open_, high, low, close, volume, wap, count)
-    #     except Exception as e:
-    #         print(e)
         
+
     #* Output notifications:
     def error(self, reqId, errorCode, errorMsg):
         print(f'NOTIFY : {reqId} {errorCode} {errorMsg}')
@@ -93,35 +88,43 @@ class IBApi(EWrapper, EClient):
 
 
 
-# class CustomContract:
-#     symbol = None
-#     secType = None
-#     symbol = None
-#     symbol = None
-#     symbol = None
+class Config:
+    bar_size_int = None 
+    bar_size_str = None
 
-#     def __init__(self, symbol, secType, exchange, primaryExchange, currency):
-#         self.symbol = symbol
-#         self.secType = secType
-#         self.exchange = exchange
-#         self.primaryExchange = primaryExchange
-#         self.currency = currency
+    def __init__(self, symbol:str, secType:str, exchange:str, primaryExchange:str, currency:str, bar_size_int:int):
+        self.symbol = symbol
+        self.secType = secType
+        self.exchange = exchange
+        self.primaryExchange = primaryExchange
+        self.currency = currency
+        self.bar_size_int = bar_size_int
 
-# contract = CustomContract(
-#     symbol = 'EUR', 
-#     secType = 'CASH', 
-#     exchange = 'SMART', 
-#     primaryExchange = 'IDEALPRO', 
-#     currency = 'USD')
+        if self.bar_size_int > 1:
+            self.bar_size_str = str(self.bar_size_int) + ' mins'
+        else: 
+            self.bar_size_str = str(self.bar_size_int) + ' min'
+
+
+
+
+
+class Strategy:
+    def run(self, bars):
+        print('Running Strategy...')
+        print(bars[-1])
+
+
+
 
 
 #* Bot Logic
 class Bot():
     ib = None
-    # config = Config(ib)
-    bar_size = 1
     bars = []
     config = None
+    contract = Contract()
+    strategy = Strategy()
 
     def __init__(self):
         #* Connect to IB on init
@@ -130,46 +133,46 @@ class Bot():
         ib_thread = threading.Thread(target=self.run_loop, daemon=True)
         ib_thread.start()
         time.sleep(1)
-        
-        # self.config = Config(self.ib)
 
-        #* Get symbol info
+        #* Set Configs
+        self.set_configs() 
         # symbol = input('Enter the symbol you want to trade : ')
         # self.config.setup('Do you want to use defaults (y/n) : ', self.ib)
-        # self.config.setup('Do you want to use defaults (y/n) : ', self.ib)
-
 
         #* Create our IB Contract Object
-        # contract = Contract()
-        # contract.symbol = self.config.symbol
-        # contract.secType = self.config.sec_type 
-        # contract.exchange = self.config.exchange
-        # contract.primaryExchange = self.config.primary_exchange
-        # contract.currency = 'USD'
-
-        contract = Contract()
-        contract.symbol = 'EUR'
-        contract.secType = 'CASH'
-        contract.exchange = 'SMART'
-        contract.primaryExchange = 'IDEALPRO'
-        contract.currency = 'USD'
-
+        self.set_contract()
 
 
         #* Request Market Data
         # Bonds and forex dont require a subscription
+        self.ib.reqHistoricalData(1, self.contract, '', '1 D', self.config.bar_size_str, 'MIDPOINT', 1, 1, True, [])
+
         # self.ib.reqRealTimeBars(0, contract, 5, 'MIDPOINT', 1, [])
         # self.ib.reqRealTimeBars(0, contract, 5, 'TRADE', 1, [])
-
-        barsizing = str(self.bar_size)+' min'
-        print(barsizing)
-
-        self.ib.reqHistoricalData(1, contract, '', '1 D', barsizing, 'MIDPOINT', 1, 1, True, [])
 
         # self.ib.reqMarketDataType(4)
         # self.ib.reqMktData(1, contract, '', False, False, [])
         # query_time = datetime.now().astimezone(pytz.timezone('America/New_York'))-timedelta(days=1).strftime('%Y%m%d %H:%M:%S')
         # self.ib.reqHistoricalData(1, contract, '', '2 D', self.config.bar_duration, 'MIDPOINT', 1, 1, True, [])
+
+
+    def set_configs(self):
+        self.config = Config(
+            symbol='EUR', 
+            secType='CASH', 
+            exchange='SMART', 
+            primaryExchange='IDEALPRO', 
+            currency='USD',
+            bar_size_int = 1
+        )
+
+
+    def set_contract(self):
+        self.contract.symbol = self.config.symbol
+        self.contract.secType = self.config.secType
+        self.contract.exchange = self.config.exchange
+        self.contract.primaryExchange = self.config.primaryExchange
+        self.contract.currency = self.config.currency
 
 
     # #* Listen to socket in separate thread
@@ -185,49 +188,22 @@ class Bot():
         else:
             current_bar_time = datetime.strptime(bar.date, '%Y%m%d %H:%M:%S')
             last_saved_bar_time = datetime.strptime(self.bars[-1].date, '%Y%m%d %H:%M:%S')
-            next_requested_bar = last_saved_bar_time + timedelta(minutes=self.bar_size)
+            next_requested_bar = last_saved_bar_time + timedelta(minutes=self.config.bar_size_int)
 
             if current_bar_time >= next_requested_bar:
                 self.bars.append(bar)
-                print(self.bars[-1])
+                #* Run Strategy Evaluations:
+                self.strategy.run(self.bars)
 
 
 
 
 
 #* Start Bot
-# bot = Bot()
-
-
-# class App:
-#     ib = IBApi()
-#     bot = None
-
-#     def __init__(self):
-#         print('init app')
-#         self.ib.connect('127.0.0.1', 7497, 1)
-#         ib_thread = threading.Thread(target=self.run_loop, daemon=True)
-#         ib_thread.start()
-#         time.sleep(1)
-#         self.set_configs()
-
-#     def set_configs(self):
-#         print('setting configs')
-
-#     def set_configs(self):
-#         print('setting bot')
-#         self.bot = Bot()
-
-#     #* Listen to socket in separate thread
-#     def run_loop(self):
-#         print('running loop')
-#         self.ib.run()
-
-
-
 if __name__ == "__main__":
-    # app = App()
     bot = Bot()
+
+
 
 # #* Bar Object
 # class Bar:
