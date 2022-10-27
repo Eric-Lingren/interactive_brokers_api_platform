@@ -61,29 +61,29 @@ class IBApi(EWrapper, EClient):
         print(f'NOTIFY : {reqId} {errorCode} {errorMsg}')
 
 
-    def render_matched_contract_descriptions(self, contractDescriptions):
-        for i, contractDescription in enumerate(contractDescriptions):
-            print(
-                f'[{i}] - ',
-                contractDescription.contract.symbol,
-                contractDescription.contract.secType,
-                contractDescription.contract.primaryExchange,
-                contractDescription.contract.currency)
+    # def render_matched_contract_descriptions(self, contractDescriptions):
+    #     for i, contractDescription in enumerate(contractDescriptions):
+    #         print(
+    #             f'[{i}] - ',
+    #             contractDescription.contract.symbol,
+    #             contractDescription.contract.secType,
+    #             contractDescription.contract.primaryExchange,
+    #             contractDescription.contract.currency)
 
 
-    def select_contract_description(self):
-        users_symbol_choice = int(input('Make a selection : '))
-        return users_symbol_choice
+    # def select_contract_description(self):
+    #     users_symbol_choice = int(input('Make a selection : '))
+    #     return users_symbol_choice
 
 
-    def symbolSamples(self, reqId, contractDescriptions):
-        if len(contractDescriptions) == 0:
-            self.config.set_chosen_contract(None)
-        else:
-            self.render_matched_contract_descriptions(contractDescriptions)
-            choice_int = self.select_contract_description()
-            chosen_contract = contractDescriptions[choice_int]            
-            self.config.set_chosen_contract(chosen_contract.contract)
+    # def symbolSamples(self, reqId, contractDescriptions):
+    #     if len(contractDescriptions) == 0:
+    #         self.config.set_chosen_contract(None)
+    #     else:
+    #         self.render_matched_contract_descriptions(contractDescriptions)
+    #         choice_int = self.select_contract_description()
+    #         chosen_contract = contractDescriptions[choice_int]            
+    #         self.config.set_chosen_contract(chosen_contract.contract)
 
 
 
@@ -111,8 +111,24 @@ class Config:
 
 class Strategy:
     def run(self, bars):
+        closes = []
         print('Running Strategy...')
-        print(bars[-1])
+        # 1 - Build SMA
+        for bar in bars:
+            closes.append(bar.close)
+        close_array = pd.Series(np.asarray(closes))
+        sma_period = 15
+        sma = ta.trend.sma_indicator(close_array, sma_period, True)
+        print(f'SMA {sma[len(sma)-1]}')
+        # 2 - Calculate Higher Highs and Higher Lows
+        last_low = bars[len(bars)-1].low
+        last_high = bars[len(bars)-1].high
+        last_close = bars[len(bars)-1].close
+        # 3 - Check Criteria
+        # print(bars)
+        print(bars[len(bars)-1])
+        print(last_low)
+
 
 
 
@@ -145,7 +161,7 @@ class Bot():
 
         #* Request Market Data
         # Bonds and forex dont require a subscription
-        self.ib.reqHistoricalData(1, self.contract, '', '1 D', self.config.bar_size_str, 'MIDPOINT', 1, 1, True, [])
+        self.ib.reqHistoricalData(1, self.contract, '', '1 D', self.config.bar_size_str, 'BID', 0, 1, True, [])
 
         # self.ib.reqRealTimeBars(0, contract, 5, 'MIDPOINT', 1, [])
         # self.ib.reqRealTimeBars(0, contract, 5, 'TRADE', 1, [])
@@ -165,6 +181,8 @@ class Bot():
             currency='USD',
             bar_size_int = 1
         )
+        # test = input('put somethinghere')
+        # print(test)
 
 
     def set_contract(self):
@@ -183,18 +201,28 @@ class Bot():
     #* Pass realtime bar data back to our bot object:
     def on_bar_update(self, reqId, bar, is_realtime):
         if is_realtime == False:
+            '''
+                Loading in historical data
+            '''
             self.bars.append(bar)
             print(self.bars[-1])
         else:
-            current_bar_time = datetime.strptime(bar.date, '%Y%m%d %H:%M:%S')
-            last_saved_bar_time = datetime.strptime(self.bars[-1].date, '%Y%m%d %H:%M:%S')
-            next_requested_bar = last_saved_bar_time + timedelta(minutes=self.config.bar_size_int)
-
-            if current_bar_time >= next_requested_bar:
-                self.bars.append(bar)
-                #* Run Strategy Evaluations:
-                self.strategy.run(self.bars)
-
+            '''
+                Streaming realtime data
+            '''
+            print(bar)
+            # current_bar_time = datetime.strptime(bar.date, '%Y%m%d %H:%M:%S')
+            # last_saved_bar_time = datetime.strptime(self.bars[-1].date, '%Y%m%d %H:%M:%S')
+            # next_requested_bar = last_saved_bar_time + timedelta(minutes=self.config.bar_size_int)
+            # if current_bar_time >= next_requested_bar:
+            #     '''
+            #         Next data bar available - add it and run strategy checks
+            #     '''
+            #     print('\n')
+            #     print(bar)
+            #     self.bars.append(bar)
+                # print(self.bars[-1])
+                # self.strategy.run(self.bars)
 
 
 
